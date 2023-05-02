@@ -1,0 +1,428 @@
+LaravelとVue.JSを使用してCrudアプリを作成する方法
+このチュートリアルでは、Laravel 8 +vuejsフレームワークを使用してcrudアプリを作成する方法を学習します。また、LaravelのVue.Jsspacrudサンプルアプリケーション用にlaravelでcrudAPIを構築する方法を学習します。
+
+1：Laravel8アプリをインストールする
+まず、ターミナルを開き、次のコマンドを実行して、laravel 8 vuejscrudサンプルアプリを作成するためのlaravelの新しいセットアップをダウンロードします。
+
+composer create-project --prefer-dist laravel/laravel blog
+2：アプリをデータベースに接続する
+次に、ダウンロードしたlaravel 8アプリのルートディレクトリにアクセスして、.envファイルを開く必要があります。次に、次のようにデータベースの詳細を追加します。
+
+DB_CONNECTION=mysql 
+DB_HOST=127.0.0.1 
+DB_PORT=3306 
+DB_DATABASE=here your database name here
+DB_USERNAME=here database username here
+DB_PASSWORD=here database password here
+3：NPM依存関係をインストールする
+この手順では、ターミナルで次のコマンドを実行して、フロントエンドの依存関係をインストールします。
+
+cd blog
+npm install
+次に、  vue-router と vue-axiosをインストールします。vue-axiosはLaravelAPIの呼び出しに使用されます。コマンドプロンプトで次のコマンドを実行します。
+
+npm install vue-router vue-axios --save
+すべての依存関係をインストールした後、ターミナルで次のコマンドを実行します。
+
+npm run watch
+ダメでしたら、npm install --legacy-peer-deps　後もう一回上のコマンドを実行する
+この npm run watch コマンドはファイルの変更をリッスンし、アセットを即座にコンパイルします。このnpm run devコマンドは、ターミナルで実行することもできます。ファイルの変更をリッスンしません。
+-----erro-------------
+npm ERR! code ELIFECYCLE的解决
+rm -rf node_modules
+rm -rf package-lock.json
+npm cache clear --force
+npm install
+------------
+4：移行、モデル、およびコントローラーを作成する
+Postモデル、移行、およびコントローラーを作成します。そのため、ターミナルで次のコマンドを実行します。
+
+php artisan make:model Post -m
+ディフォルトdatabase\migrationsフォルダー中に作成される。
+次に、 database>migrationsからcreate_posts_table.php移行ファイルを開き 、 up（） 関数をthis：create_posts_table.php に置き換え ます。
+
+public function up()
+{
+    Schema::create('posts', function (Blueprint $table) {
+        $table->bigIncrements('id');
+        $table->string('title');
+        $table->text('description');
+        $table->timestamps();
+    });
+}
+次のコマンドを使用してデータベースを移行します。
+
+php artisan migrate
+次に、app / models ディレクトリ内に配置されているPost.phpモデルファイルを開き、コードをPost.phpモデルに更新します。
+
+<?php
+ 
+namespace App\Models;
+ 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+ 
+class Post extends Model
+{
+    use HasFactory;
+ 
+    protected $fillable = [
+        'title', 'description'
+    ];
+}
+次に、ターミナルを開き、次のコマンドを実行してPostController.phpファイルを作成します。
+
+php artisan make:controller API\PostController
+controllersフォルダーの中にさらにAPIというフォルダー中にPostController.phpを作成する（app\Http\Controllers\API）
+次に、PostControllerを開き、 PostControllerファイルでインデックスの定義、メソッドの追加、編集、削除を行います。したがって、app> Http> Controllers> API フォルダーに移動し、 PostController.phpファイルを開きます。次に、次のメソッドをこれに更新します。
+
+<?php
+ 
+namespace App\Http\Controllers\API;
+ 
+use App\Http\Controllers\Controller;
+ 
+use App\Models\Post;
+ 
+use Illuminate\Http\Request;
+ 
+use Validator;
+ 
+class PostController extends Controller
+{
+    // all posts
+    public function index()
+    {
+        $posts = Post::all()->toArray();
+        return array_reverse($posts);
+    }
+ 
+    // add post
+    public function add(Request $request)
+    {
+        $post = new Post([
+            'title' => $request->input('title'),
+            'description' => $request->input('description')
+        ]);
+        $post->save();
+ 
+        return response()->json('The post successfully added');
+    }
+ 
+    // edit post
+    public function edit($id)
+    {
+        $post = Post::find($id);
+        return response()->json($post);
+    }
+ 
+    // update post
+    public function update($id, Request $request)
+    {
+        $post = Post::find($id);
+        $post->update($request->all());
+ 
+        return response()->json('The post successfully updated');
+    }
+ 
+    // delete post
+    public function delete($id)
+    {
+        $post = Post::find($id);
+        $post->delete();
+ 
+        return response()->json('The post successfully deleted');
+    }
+}
+ 
+5：Web.phpでルートを定義する
+次に、web.phpおよびapi.phpルートファイルでルートを定義します。したがって、Routesフォルダーに移動し、 web.php およびApi.phpファイルを開い て、次のルートを更新します。
+
+Routes/web.php
+
+<?php
+ 
+Route::get('{any}', function () {
+    return view('layouts.app');
+})->where('any', '.*');
+次に、api.phpファイルを開き、次のルートを追加します。
+
+Route::get('posts', 'PostController@index');
+Route::group(['prefix' => 'post'], function () {
+    Route::post('add', 'PostController@add');
+    Route::get('edit/{id}', 'PostController@edit');
+    Route::post('update/{id}', 'PostController@update');
+    Route::delete('delete/{id}', 'PostController@delete');
+});
+6：VueJsアプリを作成する
+このステップでは、リソース/ビューに移動し、 layoutsという名前のフォルダーを1つ作成します。このフォルダー内に、app.blade.phpファイルという名前のブレードビューファイルを1つ作成します。
+
+次に、resources / views / layoutsに移動し、 app.blade.phpファイルを開きます。次に、次のコードを次のようにapp.blade.phpファイルに更新します。
+
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" value="{{ csrf_token() }}"/>
+    <title>Laravel 8 Vue JS CRUD Example  - Tutsmake</title>
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,600" rel="stylesheet" type="text/css">
+    <link href="{{ mix('css/app.css') }}" type="text/css" rel="stylesheet"/>
+    <style>
+        .bg-light {
+            background-color: #eae9e9 !important;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+</div>
+<script src="{{ mix('js/app.js') }}" type="text/javascript"></script>
+</body>
+</html>
+ 
+7：CrudアプリのVueJsコンポーネントを作成する
+このステップでは、resources> js フォルダーに移動し、次のvuejsコンポーネントファイルを作成します。
+
+App.view
+AllPosts.vue
+AddPost.vue
+EditPost.vue
+App.vueがメインのVueファイルであることに注意してください。ファイルでrouter-viewを定義  します。したがって、すべてのルートページはApp.vueファイルに表示されます
+
+App.vueファイルを開き、次のコードをファイルに更新します。
+
+<template>
+    <div class="container">
+        <div class="text-center" style="margin: 20px 0px 20px 0px;">
+            <span class="text-secondary">Laravel Vue CRUD Example</span>
+        </div>
+ 
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="collapse navbar-collapse">
+                <div class="navbar-nav">
+                    <router-link to="/" class="nav-item nav-link">Home</router-link>
+                    <router-link to="/add" class="nav-item nav-link">Add Post</router-link>
+                </div>
+            </div>
+        </nav>
+        <br/>
+        <router-view></router-view>
+    </div>
+</template>
+ 
+<script>
+    export default {}
+</script>
+次に、AllPosts.vueファイルを開き、次のコードをファイルに更新します。
+
+<template>
+    <div>
+        <h3 class="text-center">All Posts</h3><br/>
+ 
+        <table class="table table-bordered">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Created At</th>
+                <th>Updated At</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="post in posts" :key="post.id">
+                <td>{{ post.id }}</td>
+                <td>{{ post.title }}</td>
+                <td>{{ post.description }}</td>
+                <td>{{ post.created_at }}</td>
+                <td>{{ post.updated_at }}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <router-link :to="{name: 'edit', params: { id: post.id }}" class="btn btn-primary">Edit
+                        </router-link>
+                        <button class="btn btn-danger" @click="deletePost(post.id)">Delete</button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</template>
+ 
+<script>
+    export default {
+        data() {
+            return {
+                posts: []
+            }
+        },
+        created() {
+            this.axios
+                .get('http://localhost:8000/api/posts')
+                .then(response => {
+                    this.posts = response.data;
+                });
+        },
+        methods: {
+            deletePost(id) {
+                this.axios
+                    .delete(`http://localhost:8000/api/post/delete/${id}`)
+                    .then(response => {
+                        let i = this.posts.map(item => item.id).indexOf(id); // find index of your object
+                        this.posts.splice(i, 1)
+                    });
+            }
+        }
+    }
+</script>
+次に、AddPost.vueファイルを開き、次のコードをファイルに更新します。
+
+<template>
+    <div>
+        <h3 class="text-center">Add Post</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <form @submit.prevent="addPost">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-control" v-model="post.title">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" class="form-control" v-model="post.description">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Post</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</template>
+ 
+<script>
+    export default {
+        data() {
+            return {
+                post: {}
+            }
+        },
+        methods: {
+            addPost() {
+ 
+                this.axios
+                    .post('http://localhost:8000/api/post/add', this.post)
+                    .then(response => (
+                        this.$router.push({name: 'home'})
+                        // console.log(response.data)
+                    ))
+                    .catch(error => console.log(error))
+                    .finally(() => this.loading = false)
+            }
+        }
+    }
+</script>
+次に、EditPost.vueファイルを開き、次のコードをファイルに更新します。
+
+<template>
+    <div>
+        <h3 class="text-center">Edit Post</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <form @submit.prevent="updatePost">
+                    <div class="form-group">
+                        <label>Title</label>
+                        <input type="text" class="form-control" v-model="post.title">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" class="form-control" v-model="post.description">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Post</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</template>
+ 
+<script>
+    export default {
+        data() {
+            return {
+                post: {}
+            }
+        },
+        created() {
+            this.axios
+                .get(`http://localhost:8000/api/post/edit/${this.$route.params.id}`)
+                .then((response) => {
+                    this.post = response.data;
+                    // console.log(response.data);
+                });
+        },
+        methods: {
+            updatePost() {
+                this.axios
+                    .post(`http://localhost:8000/api/post/update/${this.$route.params.id}`, this.post)
+                    .then((response) => {
+                        this.$router.push({name: 'home'});
+                    });
+            }
+        }
+    }
+</script>
+8：CrudアプリのVueJsルートを定義する
+次に、vueルートを定義する必要があります。したがって、  resources> js フォルダーに移動し、routes.jsという名前のファイルを作成して、次のルートをroutes.jsファイルに更新します。
+
+import AllPosts from './components/AllPosts.vue';
+import AddPost from './components/AddPost.vue';
+import EditPost from './components/EditPost.vue';
+ 
+export const routes = [
+    {
+        name: 'home',
+        path: '/',
+        component: AllPosts
+    },
+    {
+        name: 'add',
+        path: '/add',
+        component: AddPost
+    },
+    {
+        name: 'edit',
+        path: '/edit/:id',
+        component: EditPost
+    }
+];
+9：VueJsの依存関係をapp.jsに含める
+ここで、すべてのルート、vue axios、その他の依存関係などを追加する必要があります。したがって、  resources> js フォルダーに移動し、 app.jsを開きます。次に、次のコードをapp.jsファイルに更新します。
+
+require('./bootstrap');
+import Vue from ‘vue/dist/vue’;
+window.Vue = require('vue');
+ 
+import App from './App.vue';
+import VueRouter from 'vue-router';
+import VueAxios from 'vue-axios';
+import axios from 'axios';
+import {routes} from './routes';
+ 
+Vue.use(VueRouter);
+Vue.use(VueAxios, axios);
+ 
+const router = new VueRouter({
+    mode: 'history',
+    routes: routes
+});
+ 
+const app = new Vue({
+    el: '#app',
+    router: router,
+    render: h => h(App),
+});
+10：開発サーバーを実行する
+次に、ターミナルで次のコマンドを実行して、app.jsファイルを更新します。
+
+npm run watch
+このlaravelvuespa crudアプリでは、laravelでvueを使用して単一のWebページアプリケーションを実装する方法を学習しました。
